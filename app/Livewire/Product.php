@@ -4,37 +4,18 @@ namespace App\Livewire;
 
 use Livewire\Component;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
 use App\Models\Product as ProductModel;
 
 class Product extends Component
 {
     public $products, $name, $price, $product_id;
-    public $is_open = false;
 
     #[Layout('layouts.app')]
     public function render()
     {
         $this->products = ProductModel::all();
-        return view('livewire.product');
-    }
-
-    public function create()
-    {
-        // $this->resetInputField();
-        // $this->openModal();
-    $this->resetInputField();
-    $this->openModal();
-    $this->dispatch('createProductModalOpened');
-    }
-
-    public function openModal()
-    {
-        $this->is_open = true;
-    }
-
-    public function closeModal()
-    {
-        $this->is_open = false;
+        return view('livewire.product')->title('Products');
     }
 
     public function resetInputField()
@@ -44,22 +25,27 @@ class Product extends Component
         $this->product_id = '';
     }
 
+    #[On('')]
     public function store()
     {
         $this->validate([
             'name' => 'required',
-            'price' => 'required|numeric'
+            'price' => 'required|numeric',
         ]);
 
-        ProductModel::updateOrCreate(['id' => $this->product_id], [
-            'name' => $this->name,
-            'price' => $this->price
-        ]);
+        $saved = ProductModel::updateOrCreate(
+            ['id' => $this->product_id],
+            [
+                'name' => $this->name,
+                'price' => $this->price,
+            ],
+        );
 
-        session()->flash('message', 
-        $this->product_id ? 'Product Updated Successfully.' : 'Product Created Successfully');
-        $this->closeModal();
-        $this->resetInputField();
+        if ($saved) {
+            $this->dispatch('swal', title: 'Success!', text: 'Product ' . $this->name .  ' has been saved successfully!', icon: 'success', confirmButtonText: 'Done');
+            $this->resetInputField();
+            $this->dispatch('product-created')->self();
+        }
     }
 
     public function edit($id)
@@ -68,13 +54,14 @@ class Product extends Component
         $this->product_id = $id;
         $this->name = $product->name;
         $this->price = $product->price;
-
-        $this->openModal();
     }
 
     public function delete($id)
     {
-        ProductModel::find($id)->delete();
-        session()->flash('message', 'Product Deleted Successfully');
+        $productDeleted = ProductModel::find($id)->delete();
+
+        if ($productDeleted) {
+            $this->dispatch('swal', title: 'Success!', text: 'Product has been deleted successfully!', icon: 'success', confirmButtonText: 'Done');
+        }
     }
 }
